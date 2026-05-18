@@ -73,7 +73,7 @@ python init_database.py
 ### 4. 启动服务
 
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### 5. 访问API

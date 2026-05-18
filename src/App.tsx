@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Layout, Menu, Button } from 'antd';
 import Dashboard from './pages/Dashboard';
-import RoomManagement from './pages/RoomManagement';
+import RoomTemplateManagement from './pages/RoomTemplateManagement';
+import RoomConfiguration from './pages/RoomConfiguration';
+import RoomStatusManagement from './pages/RoomStatusManagement';
 import FloorView from './pages/FloorView';
 import GuestManagement from './pages/GuestManagement';
 import BookingManagement from './pages/BookingManagement';
@@ -14,7 +16,9 @@ const { Header, Sider, Content } = Layout;
 
 const menuItems = [
   { key: 'dashboard', label: '仪表盘' },
-  { key: 'rooms', label: '房间管理' },
+  { key: 'room-types', label: '房型管理' },
+  { key: 'room-config', label: '房间配置' },
+  { key: 'room-status', label: '房态管理' },
   { key: 'floor-view', label: '楼层视图' },
   { key: 'guests', label: '客人管理' },
   { key: 'bookings', label: '预订管理' },
@@ -32,8 +36,12 @@ function App() {
     switch (activeKey) {
       case 'dashboard':
         return <Dashboard />;
-      case 'rooms':
-        return <RoomManagement />;
+      case 'room-types':
+        return <RoomTemplateManagement />;
+      case 'room-config':
+        return <RoomConfiguration />;
+      case 'room-status':
+        return <RoomStatusManagement />;
       case 'floor-view':
         return <FloorView />;
       case 'guests':

@@ -1,163 +1,351 @@
-import { useState } from 'react';
-import { Card, Table, Button, Modal, Form, Input, Select, Row, Col, Tag } from 'antd';
+import { useState, useEffect } from 'react';
+import {
+  Card, Table, Button, Modal, Form, Input, Select, Row, Col, Tag, message, Spin,
+  Dropdown, MenuProps, Popconfirm, Space, Typography, Divider
+} from 'antd';
+import {
+  MoreOutlined, EditOutlined, DeleteOutlined, SafetyCertificateOutlined,
+  SettingOutlined, ReloadOutlined
+} from '@ant-design/icons';
 import { ROOM_STATUS_COLORS, ROOM_STATUS_LABELS, ROOM_TYPE_LABELS } from '../types';
+import { Room } from '../types';
+import { roomApi } from '../api';
+
+const { Text } = Typography;
 
 const RoomManagement = () => {
-  const [rooms, setRooms] = useState([
-    { id: '1', roomNumber: '101', floor: 1, type: 'single', status: 'available', price: 180, maxGuests: 1, hasWindow: true, amenities: ['WiFi', '空调', '电视'] },
-    { id: '2', roomNumber: '102', floor: 1, type: 'single', status: 'occupied', price: 180, maxGuests: 1, hasWindow: true, amenities: ['WiFi', '空调', '电视'] },
-    { id: '3', roomNumber: '201', floor: 2, type: 'double', status: 'occupied', price: 280, maxGuests: 2, hasWindow: true, amenities: ['WiFi', '空调', '电视', '独立卫浴'] },
-    { id: '4', roomNumber: '202', floor: 2, type: 'double', status: 'cleaning', price: 280, maxGuests: 2, hasWindow: false, amenities: ['WiFi', '空调', '电视'] },
-    { id: '5', roomNumber: '301', floor: 3, type: 'suite', status: 'available', price: 480, maxGuests: 4, hasWindow: true, amenities: ['WiFi', '空调', '电视', '独立卫浴', '阳台'] },
-    { id: '6', roomNumber: '302', floor: 3, type: 'family', status: 'occupied', price: 380, maxGuests: 3, hasWindow: true, amenities: ['WiFi', '空调', '电视', '独立卫浴'] },
-  ]);
-
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingRoom, setEditingRoom] = useState<typeof rooms[0] | null>(null);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
+  const [isPriceModalVisible, setIsPriceModalVisible] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [form] = Form.useForm();
+  const [priceForm] = Form.useForm();
+
+  const fetchRooms = async () => {
+    setLoading(true);
+    try {
+      const data = await roomApi.getAllRooms();
+      setRooms(data);
+    } catch (error) {
+        message.error('获取房间列表失败');
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+  };
+
+  useEffect(() => {
+    fetchRooms();
+  }, []);
 
   const filteredRooms = rooms.filter(room => 
-    room.roomNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (room.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    room.room_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     room.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const showModal = (room?: typeof rooms[0]) => {
+  // --- 基础信息维护 Modal ---
+  const showInfoModal = (room?: Room) => {
     if (room) {
       setEditingRoom(room);
-      form.setFieldsValue(room);
+      form.setFieldsValue({ ...room });
     } else {
       setEditingRoom(null);
       form.resetFields();
     }
-    setIsModalVisible(true);
+    setIsInfoModalVisible(true);
   };
 
-  const handleOk = () => {
-    form.validateFields().then(values => {
+  const handleInfoOk = async () => {
+    try {
+      const values = await form.validateFields();
+      const roomData = {
+        ...values,
+        floor: parseInt(values.floor),
+        price: parseFloat(values.price),
+        max_guests: parseInt(values.max_guests),
+      };
+
       if (editingRoom) {
-        setRooms(rooms.map(r => r.id === editingRoom.id ? { ...r, ...values } : r));
+        await roomApi.updateRoom(editingRoom.id, roomData);
+        message.success('房间信息更新成功');
       } else {
-        setRooms([...rooms, { ...values, id: Date.now().toString() }]);
+        await roomApi.createRoom(roomData);
+        message.success('房间创建成功');
       }
-      setIsModalVisible(false);
-    });
+
+      setIsInfoModalVisible(false);
+      fetchRooms();
+    } catch (error) {
+      message.error(editingRoom ? '更新失败' : '创建失败');
+      console.error(error);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setRooms(rooms.filter(r => r.id !== id));
+  // --- 价格/状态快速维护 Modal ---
+  const showPriceStatusModal = (room: Room) => {
+    setEditingRoom(room);
+    priceForm.setFieldsValue({ name: room.name, price: room.price, status: room.status });
+    setIsPriceModalVisible(true);
   };
 
-  const handleStatusChange = (id: string, status: string) => {
-    setRooms(rooms.map(r => r.id === id ? { ...r, status } : r));
+  const handlePriceOk = async () => {
+    try {
+      const values = await priceForm.validateFields();
+      await roomApi.updateRoom(editingRoom!.id, {
+        name: values.name,
+        price: parseFloat(values.price),
+        status: values.status,
+      });
+      message.success(`${editingRoom?.room_number} 更新成功`);
+      setIsPriceModalVisible(false);
+      fetchRooms();
+    } catch (error) {
+      message.error('更新失败');
+    }
   };
+
+  // --- 删除 ---
+  const handleDelete = async (id: number, roomNumber: string) => {
+    try {
+      await roomApi.deleteRoom(id);
+      message.success(`房间 ${roomNumber} 已删除`);
+      fetchRooms();
+    } catch (error) {
+      message.error('删除失败');
+    }
+  };
+
+  // --- 行内改状态 ---
+  const handleStatusChange = async (id: number, status: string) => {
+    try {
+      await roomApi.updateRoomStatus(id, status);
+      message.success('状态更新成功');
+      fetchRooms();
+    } catch (error) {
+      message.error('状态更新失败');
+    }
+  };
+
+  // --- 下拉操作菜单 ---
+  const getActionMenuItems = (record: Room): MenuProps['items'] => [
+    {
+      key: 'price',
+      label: '调价/改状态',
+      icon: <ReloadOutlined />,
+      onClick: () => showPriceStatusModal(record)
+    },
+    { type: 'divider' },
+    {
+      key: 'edit',
+      label: '编辑基础信息',
+      icon: <EditOutlined />,
+      onClick: () => showInfoModal(record)
+    },
+    { type: 'divider' },
+    {
+      key: 'delete',
+      label: <Popconfirm
+                title={`确定要删除房间 ${record.room_number}?`}
+                description="此操作不可恢复，请谨慎操作"
+                okText="确认删除"
+                cancelText="取消"
+                onConfirm={() => handleDelete(record.id, record.room_number)}
+              >
+                <span style={{ color: '#ff4d4f' }}>删除房间</span>
+              </Popconfirm>,
+      icon: <DeleteOutlined style={{ color: '#ff4d4f' }} />,
+      danger: true,
+    },
+  ];
 
   return (
     <div>
-      <Row style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+      {/* --- 顶部工具栏 --- */}
+      <Row style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Col>
-          <Input
-            placeholder="搜索房间号或类型"
+          <Input.Search
+            placeholder="搜索房间名/房间号/房型"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: 300 }}
+            style={{ width: 320 }}
+            onSearch={fetchRooms}
           />
         </Col>
         <Col>
-          <Button type="primary" onClick={() => showModal()}>
-            添加房间
-          </Button>
+          <Space>
+            <Button type="primary" onClick={() => showInfoModal()} icon={<SafetyCertificateOutlined />}>
+              新建房间
+            </Button>
+            <Button onClick={fetchRooms} >
+              刷新
+            </Button>
+          </Space>
         </Col>
       </Row>
 
-      <Card>
-        <Table
-          dataSource={filteredRooms}
-          columns={[
-            { title: '房间号', dataIndex: 'roomNumber', key: 'roomNumber' },
-            { title: '楼层', dataIndex: 'floor', key: 'floor' },
-            { title: '房型', dataIndex: 'type', key: 'type', render: (type: string) => ROOM_TYPE_LABELS[type] },
-            { 
-              title: '状态', 
-              dataIndex: 'status', 
-              key: 'status',
-              render: (status: string) => (
-                <Tag color={ROOM_STATUS_COLORS[status]}>
-                  {ROOM_STATUS_LABELS[status]}
-                </Tag>
-              ),
-              filterDropdown: () => (
-                <div style={{ padding: 8 }}>
-                  {Object.entries(ROOM_STATUS_LABELS).map(([key, label]) => (
-                    <Button
-                      key={key}
-                      onClick={() => setSearchTerm(key)}
-                      style={{ display: 'block', width: '100%', marginBottom: 4 }}
-                    >
-                      {label}
-                    </Button>
-                  ))}
-                </div>
-              ),
-            },
-            { title: '价格', dataIndex: 'price', key: 'price', render: (price: number) => `${price}元/晚` },
-            { title: '最多入住', dataIndex: 'maxGuests', key: 'maxGuests', render: (num: number) => `${num}人` },
-            { title: '设施', dataIndex: 'amenities', key: 'amenities', render: (amenities: string[]) => amenities.join(', ') },
-            {
-              title: '操作',
-              key: 'actions',
-              render: (_, record) => (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Button onClick={() => showModal(record)}>编辑</Button>
-                  <Button danger onClick={() => handleDelete(record.id)}>删除</Button>
+      <Card title={
+        <Space>
+          <SettingOutlined />
+          <span>酒店资源维护</span>
+          <Text type="secondary" style={{ fontSize: 13 }}>
+            - 房间基础信息稳定后不常变动，点右侧「···」可快速调价/改状态
+          </Text>
+        </Space>
+      }>
+        <Spin spinning={loading}>
+          <Table
+            dataSource={filteredRooms}
+            columns={[
+              { title: '房间号', dataIndex: 'room_number', key: 'room_number', 
+                render: (t: string) => <Text strong>{t}</Text>,
+                width: 95 
+              },
+              { title: '房间名', dataIndex: 'name', key: 'name', 
+                render: (t: string) => t ? <Tag color="blue">{t}</Tag> : '-',
+                width: 140 
+              },
+              { title: '楼层', dataIndex: 'floor', key: 'floor', width: 70 },
+              { title: '房型', dataIndex: 'type', key: 'type', 
+                render: (type: string) => ROOM_TYPE_LABELS[type] || type,
+                width: 100
+              },
+              {
+                title: '状态',
+                dataIndex: 'status',
+                key: 'status',
+                width: 115,
+                render: (status: string, record: Room) => (
                   <Select
-                    value={record.status}
+                    value={status}
                     onChange={(value) => handleStatusChange(record.id, value)}
-                    style={{ width: 100 }}
+                    style={{ width: 110 }}
+                    size="small"
                   >
                     {Object.entries(ROOM_STATUS_LABELS).map(([key, label]) => (
-                      <Select.Option key={key} value={key}>{label}</Select.Option>
+                      <Select.Option key={key} value={key}>
+                        <Tag color={ROOM_STATUS_COLORS[key] || '#d9d9d9'} style={{ border: 'none' }}>
+                          {label}
+                        </Tag>
+                      </Select.Option>
                     ))}
                   </Select>
-                </div>
-              ),
-            },
-          ]}
-          rowKey="id"
-        />
+                ),
+              },
+              { title: '价格', dataIndex: 'price', key: 'price', 
+                render: (price: number) => <Text code>{price}元</Text>,
+                width: 85 
+              },
+              { title: '可住', dataIndex: 'max_guests', key: 'max_guests', 
+                render: (num: number) => `${num}人`,
+                width: 70 
+              },
+              { title: '有窗', dataIndex: 'has_window', key: 'has_window', 
+                render: (has: boolean) => has ? '✅' : '-',
+                width: 60 
+              },
+              {
+                title: '操作',
+                key: 'actions',
+                width: 60,
+                fixed: 'right' as const,
+                render: (_, record: Room) => (
+                  <Dropdown menu={{ items: getActionMenuItems(record) }} trigger={['click']} placement="bottomRight">
+                    <Button type="text" size="small" icon={<MoreOutlined />} />
+                  </Dropdown>
+                ),
+              },
+            ]}
+            rowKey="id"
+            scroll={{ x: 900 }}
+          />
+        </Spin>
       </Card>
 
+      {/* --- Modal: 新建/编辑房间完整信息 --- */}
       <Modal
-        title={editingRoom ? '编辑房间' : '添加房间'}
-        visible={isModalVisible}
-        onOk={handleOk}
-        onCancel={() => setIsModalVisible(false)}
+        title={editingRoom && isInfoModalVisible ? '编辑房间【基础信息】' : '新建酒店房间'}
+        width={520}
+        open={isInfoModalVisible}
+        onOk={handleInfoOk}
+        onCancel={() => setIsInfoModalVisible(false)}
       >
+        <Divider orientation="left" orientationMargin="0">稳定属性，一般不变</Divider>
         <Form form={form} layout="vertical">
-          <Form.Item label="房间号" name="roomNumber" rules={[{ required: true }]}>
-            <Input />
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="房间号" name="room_number" rules={[{ required: true }]}>
+                <Input placeholder="如: 101" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="房间名/别名" name="name">
+                <Input placeholder="如: 山景大床房、豪华套间" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item label="楼层" name="floor" rules={[{ required: true }]}>
+                <Input type="number" placeholder="1-10" />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="房型" name="type" rules={[{ required: true }]}>
+                <Select>
+                  {Object.entries(ROOM_TYPE_LABELS).map(([key, label]) => (
+                    <Select.Option key={key} value={key}>{label}</Select.Option>
+                  ))}
+                </Select>
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="最多入住" name="max_guests" rules={[{ required: true }]}>
+                <Input type="number" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="挂牌价" name="price" rules={[{ required: true }]}>
+                <Input type="number" addonAfter="元/晚" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="有窗户" name="has_window">
+                <Select defaultValue={true}>
+                  <Select.Option value={true}>是</Select.Option>
+                  <Select.Option value={false}>否</Select.Option>
+                </Select>
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
+
+      {/* --- Modal: 快速调价/改状态 --- */}
+      <Modal
+        title={`${editingRoom?.room_number || ''} 实时调价/改状态`}
+        width={420}
+        open={isPriceModalVisible}
+        onOk={handlePriceOk}
+        onCancel={() => setIsPriceModalVisible(false)}
+      >
+        <Form form={priceForm} layout="vertical">
+          <Form.Item label="房间名/备注" name="name">
+            <Input placeholder="如: 今日特惠房" />
           </Form.Item>
-          <Form.Item label="楼层" name="floor" rules={[{ required: true }]}>
-            <Input type="number" />
-          </Form.Item>
-          <Form.Item label="房型" name="type" rules={[{ required: true }]}>
+          <Form.Item label="房态" name="status" rules={[{ required: true }]}>
             <Select>
-              {Object.entries(ROOM_TYPE_LABELS).map(([key, label]) => (
+              {Object.entries(ROOM_STATUS_LABELS).map(([key, label]) => (
                 <Select.Option key={key} value={key}>{label}</Select.Option>
               ))}
             </Select>
           </Form.Item>
-          <Form.Item label="价格" name="price" rules={[{ required: true }]}>
-            <Input type="number" />
-          </Form.Item>
-          <Form.Item label="最多入住人数" name="maxGuests" rules={[{ required: true }]}>
-            <Input type="number" />
-          </Form.Item>
-          <Form.Item label="有窗户" name="hasWindow" valuePropName="checked">
-            <Select>
-              <Select.Option value={true}>是</Select.Option>
-              <Select.Option value={false}>否</Select.Option>
-            </Select>
+          <Form.Item label="今日房价" name="price" rules={[{ required: true }]}>
+            <Input type="number" addonAfter="元/晚" />
           </Form.Item>
         </Form>
       </Modal>

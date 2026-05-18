@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Input, Button, List, Avatar, Spin, Tag } from 'antd';
+import { Card, Input, Button, List, Avatar, Spin } from 'antd';
 
 const AIAssistant = () => {
   const [messages, setMessages] = useState([

@@ -1,44 +1,46 @@
 export interface Room {
-  id: string;
-  roomNumber: string;
+  id: number;
+  uid?: string;
+  room_number: string;
+  name?: string;
   floor: number;
-  type: 'single' | 'double' | 'suite' | 'family';
+  type: string;
+  room_type_id?: number;
   status: 'available' | 'occupied' | 'cleaning' | 'maintenance' | 'locked';
   price: number;
-  maxGuests: number;
-  hasWindow: boolean;
-  amenities: string[];
+  max_guests: number;
+  has_window: boolean;
 }
 
 export interface Guest {
-  id: string;
+  id: number;
   name: string;
   phone: string;
-  idCard: string;
+  id_card: string;
   email?: string;
   preferences?: string[];
-  totalStays: number;
+  total_stays: number;
 }
 
 export interface Booking {
-  id: string;
-  roomId: string;
-  guestId: string;
-  checkIn: string;
-  checkOut: string;
+  id: number;
+  room_id: number;
+  guest_id: number;
+  check_in: string;
+  check_out: string;
   guests: number;
   status: 'confirmed' | 'checked-in' | 'checked-out' | 'cancelled';
   platform: string;
   price: number;
-  createdAt: string;
+  created_at: string;
 }
 
 export interface Platform {
-  id: string;
+  id: number;
   name: string;
-  apiKey?: string;
+  api_key?: string;
   active: boolean;
-  syncEnabled: boolean;
+  sync_enabled: boolean;
 }
 
 export interface AIResponse {
@@ -73,3 +75,17 @@ export const ROOM_TYPE_LABELS: Record<string, string> = {
 };
 
 export const PLATFORMS = ['Booking.com', 'Airbnb', '美团民宿', '携程', '飞猪', '自营'];
+
+export const BOOKING_STATUS_COLORS: Record<string, string> = {
+  confirmed: '#1890ff',
+  'checked-in': '#52c41a',
+  'checked-out': '#722ed1',
+  cancelled: '#ff4d4f',
+};
+
+export const BOOKING_STATUS_LABELS: Record<string, string> = {
+  confirmed: '已确认',
+  'checked-in': '已入住',
+  'checked-out': '已退房',
+  cancelled: '已取消',
+};

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Table, Button, Modal, Form, Input, Switch, Row, Col, Tag } from 'antd';
+import { Card, Table, Button, Modal, Form, Input, Switch, Row, Tag } from 'antd';
 
 const PlatformManagement = () => {
   const [platforms, setPlatforms] = useState([

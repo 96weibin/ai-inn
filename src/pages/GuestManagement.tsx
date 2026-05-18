@@ -1,30 +1,52 @@
-import { useState } from 'react';
-import { Card, Table, Button, Modal, Form, Input, Row, Col, Tag } from 'antd';
+import { useState, useEffect } from 'react';
+import {
+  Card, Table, Button, Modal, Form, Input, Row, Col, Tag, message, Spin,
+  Dropdown, MenuProps, Popconfirm, Space, Typography
+} from 'antd';
+import { MoreOutlined, EditOutlined, DeleteOutlined, UserOutlined } from '@ant-design/icons';
+import { Guest } from '../types';
+import { guestApi } from '../api';
+
+const { Text } = Typography;
 
 const GuestManagement = () => {
-  const [guests, setGuests] = useState([
-    { id: '1', name: '张三', phone: '138****1234', idCard: '3201****1990', email: 'zhangsan@example.com', preferences: ['安静', '高层'], totalStays: 5 },
-    { id: '2', name: '李四', phone: '139****5678', idCard: '3202****1992', email: 'lisi@example.com', preferences: ['有窗', 'WiFi'], totalStays: 3 },
-    { id: '3', name: '王五', phone: '137****9012', idCard: '3203****1988', preferences: ['家庭房'], totalStays: 8 },
-    { id: '4', name: '赵六', phone: '136****3456', idCard: '3204****1995', email: 'zhaoliu@example.com', totalStays: 2 },
-    { id: '5', name: '钱七', phone: '135****7890', idCard: '3205****1991', preferences: ['套房'], totalStays: 10 },
-  ]);
-
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingGuest, setEditingGuest] = useState<typeof guests[0] | null>(null);
+  const [editingGuest, setEditingGuest] = useState<Guest | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [form] = Form.useForm();
 
-  const filteredGuests = guests.filter(guest => 
+  const fetchGuests = async () => {
+    setLoading(true);
+    try {
+      const data = await guestApi.getAllGuests();
+      setGuests(data);
+    } catch (error) {
+      message.error('获取客人列表失败');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGuests();
+  }, []);
+
+  const filteredGuests = guests.filter(guest =>
     guest.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     guest.phone.includes(searchTerm) ||
-    guest.idCard.includes(searchTerm)
+    guest.id_card.includes(searchTerm)
   );
 
-  const showModal = (guest?: typeof guests[0]) => {
+  const showModal = (guest?: Guest) => {
     if (guest) {
       setEditingGuest(guest);
-      form.setFieldsValue(guest);
+      form.setFieldsValue({
+        ...guest,
+        note: Array.isArray(guest.preferences) ? guest.preferences.join(', ') : (guest.preferences || '')
+      });
     } else {
       setEditingGuest(null);
       form.resetFields();
@@ -32,103 +54,158 @@ const GuestManagement = () => {
     setIsModalVisible(true);
   };
 
-  const handleOk = () => {
-    form.validateFields().then(values => {
+  const handleOk = async () => {
+    try {
+      const values = await form.validateFields();
+      const guestData = {
+        name: values.name,
+        phone: values.phone,
+        id_card: values.id_card,
+        email: values.email || '',
+        preferences: values.note || ''
+      };
+
       if (editingGuest) {
-        setGuests(guests.map(g => g.id === editingGuest.id ? { ...g, ...values } : g));
+        await guestApi.updateGuest(editingGuest.id, guestData);
+        message.success('客人信息更新成功');
       } else {
-        setGuests([...guests, { ...values, id: Date.now().toString(), totalStays: 0 }]);
+        await guestApi.createGuest(guestData);
+        message.success('客人创建成功');
       }
+
       setIsModalVisible(false);
-    });
+      fetchGuests();
+    } catch (error: any) {
+      message.error(editingGuest ? '更新失败' : (error.response?.data?.error || '创建失败'));
+      console.error(error);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setGuests(guests.filter(g => g.id !== id));
+  const handleDelete = async (id: number, name: string) => {
+    try {
+      await guestApi.deleteGuest(id);
+      message.success(`客人 ${name} 已删除`);
+      fetchGuests();
+    } catch (error) {
+      message.error('删除失败');
+    }
   };
+
+  const getActionMenuItems = (record: Guest): MenuProps['items'] => [
+    {
+      key: 'edit',
+      label: '编辑',
+      icon: <EditOutlined />,
+      onClick: () => showModal(record)
+    },
+    { type: 'divider' },
+    {
+      key: 'delete',
+      label: <Popconfirm
+                title={`确定要删除客人「${record.name}」?`}
+                description="删除后客人历史入住记录将丢失"
+                okText="确认删除"
+                cancelText="取消"
+                onConfirm={() => handleDelete(record.id, record.name)}
+              >
+                <span style={{ color: '#ff4d4f' }}>删除</span>
+              </Popconfirm>,
+      icon: <DeleteOutlined style={{ color: '#ff4d4f' }} />,
+      danger: true
+    }
+  ];
 
   return (
     <div>
-      <Row style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+      <Row style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Col>
-          <Input
-            placeholder="搜索客人姓名、电话或身份证"
+          <Input.Search
+            placeholder="搜索客人姓名、电话、身份证"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: 300 }}
+            style={{ width: 320 }}
+            onSearch={fetchGuests}
           />
         </Col>
         <Col>
-          <Button type="primary" onClick={() => showModal()}>
-            添加客人
-          </Button>
+          <Space>
+            <Button type="primary" onClick={() => showModal()} icon={<UserOutlined />}>
+              登记客人
+            </Button>
+            <Button onClick={fetchGuests}>
+              刷新
+            </Button>
+          </Space>
         </Col>
       </Row>
 
-      <Card>
-        <Table
-          dataSource={filteredGuests}
-          columns={[
-            { 
-              title: '头像', 
-              key: 'avatar', 
-              render: () => (
-                <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#1890ff', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                  客
-                </div>
-              ),
-            },
-            { title: '姓名', dataIndex: 'name', key: 'name' },
-            { title: '电话', dataIndex: 'phone', key: 'phone' },
-            { title: '身份证', dataIndex: 'idCard', key: 'idCard' },
-            { title: '邮箱', dataIndex: 'email', key: 'email' },
-            { 
-              title: '入住次数', 
-              dataIndex: 'totalStays', 
-              key: 'totalStays',
-              render: (stays: number) => (
-                <Tag color={stays >= 5 ? 'gold' : stays >= 3 ? 'blue' : 'default'}>
-                  {stays}次
-                </Tag>
-              ),
-            },
-            { title: '偏好', dataIndex: 'preferences', key: 'preferences', render: (pref: string[]) => pref?.join(', ') || '-' },
-            {
-              title: '操作',
-              key: 'actions',
-              render: (_, record) => (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Button onClick={() => showModal(record)}>编辑</Button>
-                  <Button danger onClick={() => handleDelete(record.id)}>删除</Button>
-                </div>
-              ),
-            },
-          ]}
-          rowKey="id"
-        />
+      <Card title="客人档案列表">
+        <Spin spinning={loading}>
+          <Table
+            dataSource={filteredGuests}
+            columns={[
+              { title: '姓名', dataIndex: 'name', key: 'name',
+                render: (t: string) => <Text strong>{t}</Text>,
+                width: 100
+              },
+              { title: '联系电话', dataIndex: 'phone', key: 'phone', width: 120 },
+              { title: '身份证', dataIndex: 'id_card', key: 'id_card', 
+                render: (t: string) => <Text type="secondary" code>{t?.slice(0,6)}****{t?.slice(-4)}</Text>,
+                width: 150
+              },
+              {
+                title: '历史入住',
+                dataIndex: 'total_stays',
+                key: 'total_stays',
+                render: (stays: number) => stays > 0 ? (
+                  <Tag color={stays >= 5 ? 'gold' : 'green'}>{stays} 次</Tag>
+                ) : <Text type="secondary">首次</Text>,
+                width: 100
+              },
+              { title: '备注', dataIndex: 'preferences', key: 'preferences',
+                render: (arr: any) => Array.isArray(arr) ? arr.join(', ') : (arr || '-')
+              },
+              {
+                title: '操作',
+                key: 'actions',
+                width: 60,
+                render: (_, record: Guest) => (
+                  <Dropdown menu={{ items: getActionMenuItems(record) }} trigger={['click']} placement="bottomRight">
+                    <Button type="text" size="small" icon={<MoreOutlined />} />
+                  </Dropdown>
+                ),
+              },
+            ]}
+            rowKey="id"
+          />
+        </Spin>
       </Card>
 
       <Modal
-        title={editingGuest ? '编辑客人' : '添加客人'}
-        visible={isModalVisible}
+        title={editingGuest ? '编辑客人' : '登记客人信息'}
+        width={460}
+        open={isModalVisible}
         onOk={handleOk}
         onCancel={() => setIsModalVisible(false)}
       >
         <Form form={form} layout="vertical">
-          <Form.Item label="姓名" name="name" rules={[{ required: true }]}>
-            <Input />
+          <Form.Item label="姓名" name="name" rules={[{ required: true, message: '必填' }]}>
+            <Input placeholder="入住人真实姓名" />
           </Form.Item>
-          <Form.Item label="电话" name="phone" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item label="身份证" name="idCard" rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
-          <Form.Item label="邮箱" name="email">
-            <Input />
-          </Form.Item>
-          <Form.Item label="偏好（逗号分隔）" name="preferences">
-            <Input placeholder="例如：安静, 高层" />
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="手机号码" name="phone" rules={[{ required: true, message: '必填' }]}>
+                <Input placeholder="138xxxxxxxx" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="身份证号" name="id_card" rules={[{ required: true, message: '必填' }]}>
+                <Input placeholder="3201xxxxxxxxxxxxxx" />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item label="备注信息" name="note">
+            <Input.TextArea placeholder="如：高楼层、不要靠马路、VIP、其他特殊要求等..." rows={3} />
           </Form.Item>
         </Form>
       </Modal>
