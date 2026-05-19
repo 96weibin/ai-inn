@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from database import get_db
-from models import Booking, Room
+from models import Booking, Room, Guest
 from pydantic import BaseModel
 from datetime import date
 from typing import Optional
@@ -9,8 +9,8 @@ from typing import Optional
 router = APIRouter()
 
 class BookingCreate(BaseModel):
-    room_id: int
-    guest_id: int
+    room_uid: str
+    guest_uid: str
     check_in: date
     check_out: date
     guests: int = 1
@@ -26,9 +26,9 @@ def get_all_bookings(db: Session = Depends(get_db)):
     bookings = db.query(Booking).order_by(Booking.id.desc()).all()
     return [
         {
-            "id": b.id,
-            "room_id": b.room_id,
-            "guest_id": b.guest_id,
+            "uid": b.uid,
+            "room_number": db.query(Room.room_number).filter(Room.id == b.room_id).scalar() or "",
+            "guest_name": db.query(Guest.name).filter(Guest.id == b.guest_id).scalar() or "",
             "check_in": str(b.check_in),
             "check_out": str(b.check_out),
             "guests": b.guests,
@@ -39,15 +39,15 @@ def get_all_bookings(db: Session = Depends(get_db)):
         for b in bookings
     ]
 
-@router.get("/{booking_id}")
-def get_booking(booking_id: int, db: Session = Depends(get_db)):
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+@router.get("/{booking_uid}")
+def get_booking(booking_uid: str, db: Session = Depends(get_db)):
+    booking = db.query(Booking).filter(Booking.uid == booking_uid).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     return {
-        "id": booking.id,
-        "room_id": booking.room_id,
-        "guest_id": booking.guest_id,
+        "uid": booking.uid,
+        "room_number": db.query(Room.room_number).filter(Room.id == booking.room_id).scalar() or "",
+        "guest_name": db.query(Guest.name).filter(Guest.id == booking.guest_id).scalar() or "",
         "check_in": str(booking.check_in),
         "check_out": str(booking.check_out),
         "guests": booking.guests,
@@ -58,16 +58,20 @@ def get_booking(booking_id: int, db: Session = Depends(get_db)):
 
 @router.post("/")
 def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
-    room = db.query(Room).filter(Room.id == booking.room_id).first()
+    room = db.query(Room).filter(Room.uid == booking.room_uid).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
+    
+    guest = db.query(Guest).filter(Guest.uid == booking.guest_uid).first()
+    if not guest:
+        raise HTTPException(status_code=404, detail="Guest not found")
     
     if room.status != "available":
         raise HTTPException(status_code=400, detail="Room is not available")
     
     new_booking = Booking(
-        room_id=booking.room_id,
-        guest_id=booking.guest_id,
+        room_id=room.id,
+        guest_id=guest.id,
         check_in=booking.check_in,
         check_out=booking.check_out,
         guests=booking.guests,
@@ -80,11 +84,11 @@ def create_booking(booking: BookingCreate, db: Session = Depends(get_db)):
     db.add(new_booking)
     db.commit()
     db.refresh(new_booking)
-    return {"id": new_booking.id, "message": "Booking created successfully"}
+    return {"uid": new_booking.uid, "message": "Booking created successfully"}
 
-@router.put("/{booking_id}")
-def update_booking(booking_id: int, booking: BookingUpdate, db: Session = Depends(get_db)):
-    existing_booking = db.query(Booking).filter(Booking.id == booking_id).first()
+@router.put("/{booking_uid}")
+def update_booking(booking_uid: str, booking: BookingUpdate, db: Session = Depends(get_db)):
+    existing_booking = db.query(Booking).filter(Booking.uid == booking_uid).first()
     if not existing_booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     
@@ -96,9 +100,9 @@ def update_booking(booking_id: int, booking: BookingUpdate, db: Session = Depend
     db.commit()
     return {"message": "Booking updated successfully"}
 
-@router.delete("/{booking_id}")
-def delete_booking(booking_id: int, db: Session = Depends(get_db)):
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+@router.delete("/{booking_uid}")
+def delete_booking(booking_uid: str, db: Session = Depends(get_db)):
+    booking = db.query(Booking).filter(Booking.uid == booking_uid).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     
@@ -106,9 +110,9 @@ def delete_booking(booking_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Booking deleted"}
 
-@router.post("/{booking_id}/checkin")
-def check_in(booking_id: int, db: Session = Depends(get_db)):
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+@router.post("/{booking_uid}/checkin")
+def check_in(booking_uid: str, db: Session = Depends(get_db)):
+    booking = db.query(Booking).filter(Booking.uid == booking_uid).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     
@@ -116,9 +120,9 @@ def check_in(booking_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Checked in successfully"}
 
-@router.post("/{booking_id}/checkout")
-def check_out(booking_id: int, db: Session = Depends(get_db)):
-    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+@router.post("/{booking_uid}/checkout")
+def check_out(booking_uid: str, db: Session = Depends(get_db)):
+    booking = db.query(Booking).filter(Booking.uid == booking_uid).first()
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
     

@@ -26,11 +26,11 @@ export type RoomTemplate = {
 
 export const roomApi = {
   getAllRooms: (): Promise<Room[]> => api.get('/rooms'),
-  getRoomById: (id: number): Promise<Room> => api.get(`/rooms/${id}`),
-  createRoom: (data: Omit<Room, 'id'>) => api.post('/rooms', data),
-  updateRoom: (id: number, data: Partial<Room>) => api.put(`/rooms/${id}`, data),
-  deleteRoom: (id: number) => api.delete(`/rooms/${id}`),
-  updateRoomStatus: (id: number, status: string) => api.patch(`/rooms/${id}/status`, { status }),
+  getRoom: (uid: string): Promise<Room> => api.get(`/rooms/${uid}`),
+  createRoom: (data: Omit<Room, 'uid'>) => api.post('/rooms', data),
+  updateRoom: (uid: string, data: Partial<Room>) => api.put(`/rooms/${uid}`, data),
+  deleteRoom: (uid: string) => api.delete(`/rooms/${uid}`),
+  updateRoomStatus: (uid: string, status: string) => api.patch(`/rooms/${uid}/status`, { status }),
 };
 
 export const roomTemplateApi = {
@@ -42,21 +42,21 @@ export const roomTemplateApi = {
 
 export const guestApi = {
   getAllGuests: (): Promise<Guest[]> => api.get('/guests'),
-  getGuestById: (id: number): Promise<Guest> => api.get(`/guests/${id}`),
-  createGuest: (data: Omit<Guest, 'id' | 'total_stays'>) => api.post('/guests', data),
-  updateGuest: (id: number, data: Partial<Guest>) => api.put(`/guests/${id}`, data),
-  deleteGuest: (id: number) => api.delete(`/guests/${id}`),
+  getGuest: (uid: string): Promise<Guest> => api.get(`/guests/${uid}`),
+  createGuest: (data: Omit<Guest, 'uid' | 'total_stays'>) => api.post('/guests', data),
+  updateGuest: (uid: string, data: Partial<Guest>) => api.put(`/guests/${uid}`, data),
+  deleteGuest: (uid: string) => api.delete(`/guests/${uid}`),
   searchGuests: (query: string): Promise<Guest[]> => api.get(`/guests/search?q=${query}`),
 };
 
 export const bookingApi = {
   getAllBookings: (): Promise<Booking[]> => api.get('/bookings'),
-  getBookingById: (id: number): Promise<Booking> => api.get(`/bookings/${id}`),
-  createBooking: (data: Omit<Booking, 'id' | 'created_at'>) => api.post('/bookings', data),
-  updateBooking: (id: number, data: Partial<Booking>) => api.put(`/bookings/${id}`, data),
-  deleteBooking: (id: number) => api.delete(`/bookings/${id}`),
-  checkIn: (id: number) => api.post(`/bookings/${id}/checkin`),
-  checkOut: (id: number) => api.post(`/bookings/${id}/checkout`),
+  getBooking: (uid: string): Promise<Booking> => api.get(`/bookings/${uid}`),
+  createBooking: (data: { room_uid: string; guest_uid: string; check_in: string; check_out: string; guests?: number; platform?: string; price?: number }) => api.post('/bookings', data),
+  updateBooking: (uid: string, data: Partial<Booking>) => api.put(`/bookings/${uid}`, data),
+  deleteBooking: (uid: string) => api.delete(`/bookings/${uid}`),
+  checkIn: (uid: string) => api.post(`/bookings/${uid}/checkin`),
+  checkOut: (uid: string) => api.post(`/bookings/${uid}/checkout`),
 };
 
 export const platformApi = {

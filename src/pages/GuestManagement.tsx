@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Card, Table, Button, Modal, Form, Input, Row, Col, Tag, message, Spin,
-  Dropdown, MenuProps, Popconfirm, Space, Typography
+  Dropdown, MenuProps, Space, Typography
 } from 'antd';
 import { MoreOutlined, EditOutlined, DeleteOutlined, UserOutlined } from '@ant-design/icons';
 import { Guest } from '../types';
@@ -66,7 +66,7 @@ const GuestManagement = () => {
       };
 
       if (editingGuest) {
-        await guestApi.updateGuest(editingGuest.id, guestData);
+        await guestApi.updateGuest(editingGuest.uid, guestData);
         message.success('客人信息更新成功');
       } else {
         await guestApi.createGuest(guestData);
@@ -81,14 +81,24 @@ const GuestManagement = () => {
     }
   };
 
-  const handleDelete = async (id: number, name: string) => {
-    try {
-      await guestApi.deleteGuest(id);
-      message.success(`客人 ${name} 已删除`);
-      fetchGuests();
-    } catch (error) {
-      message.error('删除失败');
-    }
+  const handleDelete = (record: Guest) => {
+    Modal.confirm({
+      title: `确定要删除客人「${record.name}」?`,
+      content: '删除后客人历史入住记录将丢失',
+      okText: '确认删除',
+      okType: 'danger',
+      cancelText: '取消',
+      maskClosable: false,
+      onOk: async () => {
+        try {
+          await guestApi.deleteGuest(record.uid);
+          message.success(`客人 ${record.name} 已删除`);
+          fetchGuests();
+        } catch (error) {
+          message.error('删除失败');
+        }
+      }
+    })
   };
 
   const getActionMenuItems = (record: Guest): MenuProps['items'] => [
@@ -101,16 +111,9 @@ const GuestManagement = () => {
     { type: 'divider' },
     {
       key: 'delete',
-      label: <Popconfirm
-                title={`确定要删除客人「${record.name}」?`}
-                description="删除后客人历史入住记录将丢失"
-                okText="确认删除"
-                cancelText="取消"
-                onConfirm={() => handleDelete(record.id, record.name)}
-              >
-                <span style={{ color: '#ff4d4f' }}>删除</span>
-              </Popconfirm>,
+      label: <span style={{ color: '#ff4d4f' }}>删除</span>,
       icon: <DeleteOutlined style={{ color: '#ff4d4f' }} />,
+      onClick: () => handleDelete(record),
       danger: true
     }
   ];
@@ -149,7 +152,7 @@ const GuestManagement = () => {
                 width: 100
               },
               { title: '联系电话', dataIndex: 'phone', key: 'phone', width: 120 },
-              { title: '身份证', dataIndex: 'id_card', key: 'id_card', 
+              { title: '身份证', dataIndex: 'id_card', key: 'id_card',
                 render: (t: string) => <Text type="secondary" code>{t?.slice(0,6)}****{t?.slice(-4)}</Text>,
                 width: 150
               },
@@ -176,7 +179,7 @@ const GuestManagement = () => {
                 ),
               },
             ]}
-            rowKey="id"
+            rowKey="uid"
           />
         </Spin>
       </Card>

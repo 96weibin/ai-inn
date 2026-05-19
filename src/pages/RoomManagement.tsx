@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import {
   Card, Table, Button, Modal, Form, Input, Select, Row, Col, Tag, message, Spin,
-  Dropdown, MenuProps, Popconfirm, Space, Typography, Divider
+  Dropdown, MenuProps, Space, Typography, Divider
 } from 'antd';
 import {
   MoreOutlined, EditOutlined, DeleteOutlined, SafetyCertificateOutlined,
@@ -40,13 +40,12 @@ const RoomManagement = () => {
     fetchRooms();
   }, []);
 
-  const filteredRooms = rooms.filter(room => 
+  const filteredRooms = rooms.filter(room =>
     (room.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     room.room_number.toLowerCase().includes(searchTerm.toLowerCase()) ||
     room.type.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // --- 基础信息维护 Modal ---
   const showInfoModal = (room?: Room) => {
     if (room) {
       setEditingRoom(room);
@@ -69,7 +68,7 @@ const RoomManagement = () => {
       };
 
       if (editingRoom) {
-        await roomApi.updateRoom(editingRoom.id, roomData);
+        await roomApi.updateRoom(editingRoom.uid, roomData);
         message.success('房间信息更新成功');
       } else {
         await roomApi.createRoom(roomData);
@@ -84,7 +83,6 @@ const RoomManagement = () => {
     }
   };
 
-  // --- 价格/状态快速维护 Modal ---
   const showPriceStatusModal = (room: Room) => {
     setEditingRoom(room);
     priceForm.setFieldsValue({ name: room.name, price: room.price, status: room.status });
@@ -94,7 +92,7 @@ const RoomManagement = () => {
   const handlePriceOk = async () => {
     try {
       const values = await priceForm.validateFields();
-      await roomApi.updateRoom(editingRoom!.id, {
+      await roomApi.updateRoom(editingRoom!.uid, {
         name: values.name,
         price: parseFloat(values.price),
         status: values.status,
@@ -107,21 +105,29 @@ const RoomManagement = () => {
     }
   };
 
-  // --- 删除 ---
-  const handleDelete = async (id: number, roomNumber: string) => {
-    try {
-      await roomApi.deleteRoom(id);
-      message.success(`房间 ${roomNumber} 已删除`);
-      fetchRooms();
-    } catch (error) {
-      message.error('删除失败');
-    }
+  const handleDelete = (record: Room) => {
+    Modal.confirm({
+      title: `确定要删除房间 ${record.room_number}?`,
+      content: '此操作不可恢复，请谨慎操作',
+      okText: '确认删除',
+      okType: 'danger',
+      cancelText: '取消',
+      maskClosable: false,
+      onOk: async () => {
+        try {
+          await roomApi.deleteRoom(record.uid);
+          message.success(`房间 ${record.room_number} 已删除`);
+          fetchRooms();
+        } catch (error) {
+          message.error('删除失败');
+        }
+      }
+    })
   };
 
-  // --- 行内改状态 ---
-  const handleStatusChange = async (id: number, status: string) => {
+  const handleStatusChange = async (uid: string, status: string) => {
     try {
-      await roomApi.updateRoomStatus(id, status);
+      await roomApi.updateRoomStatus(uid, status);
       message.success('状态更新成功');
       fetchRooms();
     } catch (error) {
@@ -129,7 +135,6 @@ const RoomManagement = () => {
     }
   };
 
-  // --- 下拉操作菜单 ---
   const getActionMenuItems = (record: Room): MenuProps['items'] => [
     {
       key: 'price',
@@ -147,23 +152,15 @@ const RoomManagement = () => {
     { type: 'divider' },
     {
       key: 'delete',
-      label: <Popconfirm
-                title={`确定要删除房间 ${record.room_number}?`}
-                description="此操作不可恢复，请谨慎操作"
-                okText="确认删除"
-                cancelText="取消"
-                onConfirm={() => handleDelete(record.id, record.room_number)}
-              >
-                <span style={{ color: '#ff4d4f' }}>删除房间</span>
-              </Popconfirm>,
+      label: <span style={{ color: '#ff4d4f' }}>删除房间</span>,
       icon: <DeleteOutlined style={{ color: '#ff4d4f' }} />,
+      onClick: () => handleDelete(record),
       danger: true,
     },
   ];
 
   return (
     <div>
-      {/* --- 顶部工具栏 --- */}
       <Row style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Col>
           <Input.Search
@@ -199,16 +196,16 @@ const RoomManagement = () => {
           <Table
             dataSource={filteredRooms}
             columns={[
-              { title: '房间号', dataIndex: 'room_number', key: 'room_number', 
+              { title: '房间号', dataIndex: 'room_number', key: 'room_number',
                 render: (t: string) => <Text strong>{t}</Text>,
-                width: 95 
+                width: 95
               },
-              { title: '房间名', dataIndex: 'name', key: 'name', 
+              { title: '房间名', dataIndex: 'name', key: 'name',
                 render: (t: string) => t ? <Tag color="blue">{t}</Tag> : '-',
-                width: 140 
+                width: 140
               },
               { title: '楼层', dataIndex: 'floor', key: 'floor', width: 70 },
-              { title: '房型', dataIndex: 'type', key: 'type', 
+              { title: '房型', dataIndex: 'type', key: 'type',
                 render: (type: string) => ROOM_TYPE_LABELS[type] || type,
                 width: 100
               },
@@ -220,7 +217,7 @@ const RoomManagement = () => {
                 render: (status: string, record: Room) => (
                   <Select
                     value={status}
-                    onChange={(value) => handleStatusChange(record.id, value)}
+                    onChange={(value) => handleStatusChange(record.uid, value)}
                     style={{ width: 110 }}
                     size="small"
                   >
@@ -234,17 +231,17 @@ const RoomManagement = () => {
                   </Select>
                 ),
               },
-              { title: '价格', dataIndex: 'price', key: 'price', 
+              { title: '价格', dataIndex: 'price', key: 'price',
                 render: (price: number) => <Text code>{price}元</Text>,
-                width: 85 
+                width: 85
               },
-              { title: '可住', dataIndex: 'max_guests', key: 'max_guests', 
+              { title: '可住', dataIndex: 'max_guests', key: 'max_guests',
                 render: (num: number) => `${num}人`,
-                width: 70 
+                width: 70
               },
-              { title: '有窗', dataIndex: 'has_window', key: 'has_window', 
+              { title: '有窗', dataIndex: 'has_window', key: 'has_window',
                 render: (has: boolean) => has ? '✅' : '-',
-                width: 60 
+                width: 60
               },
               {
                 title: '操作',
@@ -258,13 +255,12 @@ const RoomManagement = () => {
                 ),
               },
             ]}
-            rowKey="id"
+            rowKey="uid"
             scroll={{ x: 900 }}
           />
         </Spin>
       </Card>
 
-      {/* --- Modal: 新建/编辑房间完整信息 --- */}
       <Modal
         title={editingRoom && isInfoModalVisible ? '编辑房间【基础信息】' : '新建酒店房间'}
         width={520}
@@ -325,7 +321,6 @@ const RoomManagement = () => {
         </Form>
       </Modal>
 
-      {/* --- Modal: 快速调价/改状态 --- */}
       <Modal
         title={`${editingRoom?.room_number || ''} 实时调价/改状态`}
         width={420}

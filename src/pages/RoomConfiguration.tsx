@@ -92,9 +92,9 @@ const RoomConfiguration = () => {
     }
   };
 
-  const handleDelete = (id: number, num: string) => {
+  const handleDelete = (record: any) => {
     Modal.confirm({
-      title: `确定删除房间 ${num} 吗?`,
+      title: `确定删除房间 ${record.room_number} 吗?`,
       content: '删除后该房间配置将被移除，需要重新添加。',
       okText: '删除',
       okType: 'danger',
@@ -102,8 +102,8 @@ const RoomConfiguration = () => {
       maskClosable: false,
       onOk: async () => {
         try {
-          await roomApi.deleteRoom(id);
-          message.success(`房间 ${num} 已删除`);
+          await roomApi.deleteRoom(record.uid);
+          message.success(`房间 ${record.room_number} 已删除`);
           fetchAll();
         } catch {
           message.error('删除失败');
@@ -115,7 +115,7 @@ const RoomConfiguration = () => {
   const getActions = (record: any): MenuProps['items'] => [
     { key: 'e', label: '编辑', icon: <EditOutlined />, onClick: () => showModal(record) },
     { type: 'divider' },
-    { key: 'd', label: <span style={{color:'#ff4d4f'}}>删除房间</span>, danger: true, icon: <DeleteOutlined />, onClick: () => handleDelete(record.id, record.room_number) }
+    { key: 'd', label: <span style={{color:'#ff4d4f'}}>删除房间</span>, danger: true, icon: <DeleteOutlined />, onClick: () => handleDelete(record) }
   ];
 
   const renderRoomType = (_: string, record: any) => {

@@ -35,13 +35,11 @@ def get_all_rooms(db: Session = Depends(get_db)):
     rooms = db.query(Room).order_by(Room.floor, Room.room_number).all()
     return [
         {
-            "id": room.id,
             "uid": room.uid,
             "room_number": room.room_number,
             "name": room.name,
             "floor": room.floor,
             "type": room.type,
-            "room_type_id": room.room_type_id,
             "room_template_uid": db.query(RoomType.uid).filter(RoomType.id == room.room_type_id).scalar() if room.room_type_id else None,
             "status": room.status,
             "price": room.price,
@@ -51,13 +49,13 @@ def get_all_rooms(db: Session = Depends(get_db)):
         for room in rooms
     ]
 
-@router.get("/{room_id}")
-def get_room(room_id: int, db: Session = Depends(get_db)):
-    room = db.query(Room).filter(Room.id == room_id).first()
+@router.get("/{room_uid}")
+def get_room(room_uid: str, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.uid == room_uid).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     return {
-        "id": room.id,
+        "uid": room.uid,
         "room_number": room.room_number,
         "name": room.name,
         "floor": room.floor,
@@ -93,11 +91,11 @@ def create_room(room: RoomCreate, db: Session = Depends(get_db)):
     db.add(new_room)
     db.commit()
     db.refresh(new_room)
-    return {"id": new_room.id, "message": "Room created successfully"}
+    return {"uid": new_room.uid, "message": "Room created successfully"}
 
-@router.put("/{room_id}")
-def update_room(room_id: int, room: RoomUpdate, db: Session = Depends(get_db)):
-    existing_room = db.query(Room).filter(Room.id == room_id).first()
+@router.put("/{room_uid}")
+def update_room(room_uid: str, room: RoomUpdate, db: Session = Depends(get_db)):
+    existing_room = db.query(Room).filter(Room.uid == room_uid).first()
     if not existing_room:
         raise HTTPException(status_code=404, detail="Room not found")
     
@@ -132,18 +130,18 @@ def update_room(room_id: int, room: RoomUpdate, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Room updated successfully"}
 
-@router.patch("/{room_id}/status")
-def update_room_status(room_id: int, data: dict, db: Session = Depends(get_db)):
-    room = db.query(Room).filter(Room.id == room_id).first()
+@router.patch("/{room_uid}/status")
+def update_room_status(room_uid: str, data: dict, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.uid == room_uid).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     room.status = data.get("status", room.status)
     db.commit()
     return {"message": "Room status updated"}
 
-@router.delete("/{room_id}")
-def delete_room(room_id: int, db: Session = Depends(get_db)):
-    room = db.query(Room).filter(Room.id == room_id).first()
+@router.delete("/{room_uid}")
+def delete_room(room_uid: str, db: Session = Depends(get_db)):
+    room = db.query(Room).filter(Room.uid == room_uid).first()
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     

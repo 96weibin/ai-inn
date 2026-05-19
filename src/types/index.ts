@@ -1,11 +1,10 @@
 export interface Room {
-  id: number;
-  uid?: string;
+  uid: string;
   room_number: string;
   name?: string;
   floor: number;
   type: string;
-  room_type_id?: number;
+  room_template_uid?: string;
   status: 'available' | 'occupied' | 'cleaning' | 'maintenance' | 'locked';
   price: number;
   max_guests: number;
@@ -13,7 +12,7 @@ export interface Room {
 }
 
 export interface Guest {
-  id: number;
+  uid: string;
   name: string;
   phone: string;
   id_card: string;
@@ -23,16 +22,15 @@ export interface Guest {
 }
 
 export interface Booking {
-  id: number;
-  room_id: number;
-  guest_id: number;
+  uid: string;
+  room_number: string;
+  guest_name: string;
   check_in: string;
   check_out: string;
   guests: number;
   status: 'confirmed' | 'checked-in' | 'checked-out' | 'cancelled';
   platform: string;
   price: number;
-  created_at: string;
 }
 
 export interface Platform {

@@ -42,9 +42,9 @@ const RoomStatusManagement = () => {
     return templates.find(t => t.type === record.type);
   };
 
-  const handleStatusChange = async (id: number, status: string) => {
+  const handleStatusChange = async (uid: string, status: string) => {
     try {
-      await roomApi.updateRoomStatus(id, status);
+      await roomApi.updateRoomStatus(uid, status);
       message.success('房态更新成功');
       fetchRooms();
     } catch (error) {

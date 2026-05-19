@@ -26,7 +26,7 @@ def get_all_guests(db: Session = Depends(get_db)):
     guests = db.query(Guest).order_by(Guest.id).all()
     return [
         {
-            "id": g.id,
+            "uid": g.uid,
             "name": g.name,
             "phone": g.phone,
             "id_card": g.id_card,
@@ -37,13 +37,13 @@ def get_all_guests(db: Session = Depends(get_db)):
         for g in guests
     ]
 
-@router.get("/{guest_id}")
-def get_guest(guest_id: int, db: Session = Depends(get_db)):
-    g = db.query(Guest).filter(Guest.id == guest_id).first()
+@router.get("/{guest_uid}")
+def get_guest(guest_uid: str, db: Session = Depends(get_db)):
+    g = db.query(Guest).filter(Guest.uid == guest_uid).first()
     if not g:
         raise HTTPException(status_code=404, detail="Guest not found")
     return {
-        "id": g.id,
+        "uid": g.uid,
         "name": g.name,
         "phone": g.phone,
         "id_card": g.id_card,
@@ -69,11 +69,11 @@ def create_guest(guest: GuestCreate, db: Session = Depends(get_db)):
     db.add(new_guest)
     db.commit()
     db.refresh(new_guest)
-    return {"id": new_guest.id, "message": "Guest created successfully"}
+    return {"uid": new_guest.uid, "message": "Guest created successfully"}
 
-@router.put("/{guest_id}")
-def update_guest(guest_id: int, guest: GuestUpdate, db: Session = Depends(get_db)):
-    existing_guest = db.query(Guest).filter(Guest.id == guest_id).first()
+@router.put("/{guest_uid}")
+def update_guest(guest_uid: str, guest: GuestUpdate, db: Session = Depends(get_db)):
+    existing_guest = db.query(Guest).filter(Guest.uid == guest_uid).first()
     if not existing_guest:
         raise HTTPException(status_code=404, detail="Guest not found")
     
@@ -91,9 +91,9 @@ def update_guest(guest_id: int, guest: GuestUpdate, db: Session = Depends(get_db
     db.commit()
     return {"message": "Guest updated successfully"}
 
-@router.delete("/{guest_id}")
-def delete_guest(guest_id: int, db: Session = Depends(get_db)):
-    guest = db.query(Guest).filter(Guest.id == guest_id).first()
+@router.delete("/{guest_uid}")
+def delete_guest(guest_uid: str, db: Session = Depends(get_db)):
+    guest = db.query(Guest).filter(Guest.uid == guest_uid).first()
     if not guest:
         raise HTTPException(status_code=404, detail="Guest not found")
     
@@ -110,7 +110,7 @@ def search_guests(q: str, db: Session = Depends(get_db)):
     ).all()
     return [
         {
-            "id": g.id,
+            "uid": g.uid,
             "name": g.name,
             "phone": g.phone,
             "id_card": g.id_card,
